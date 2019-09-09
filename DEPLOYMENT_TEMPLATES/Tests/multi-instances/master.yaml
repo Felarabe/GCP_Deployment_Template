@@ -1,0 +1,79 @@
+# This is the configuration file in yaml. Because I was going to create quite a lot of resources,
+# I had to make sure that the templates were efficient enough for me to just declare a statement in the yaml file
+#Resources in this file:
+# Autonetwork, Customnetworks, Subnets, VMs
+#
+# The [] spaces are to be customized by the user.
+imports:
+- path: autonetwork-template.jinja
+- path: custom-network.jinja
+- path: subnetwork-template.jinja
+- path: firewall-template.jinja
+- path: vm-template.jinja
+
+resources:
+- name: [AUTO_NETWORK_1]
+  type: autonetwork-template.jinja
+
+- name: [FIREWALL_NAME_1]
+#This is a firewall_rule for allowing http, ssh and rdp
+#http is to allow external trafic, ssh is for linux and debian machines, rdp is for windows
+#The protocol layer is Transport Control Protocol (TCP) and the ports are 22, 80 and 2289
+  type: firewall-template.jinja
+  properties:
+    network: $(ref.[AUTO_NETWORK_1].selfLink) 
+    #References are used to set precedence
+    #What this simply mean is that for your [FIREWALL_NAME_1] resources to be created, the network has to be created first.
+    # For more information, visit: https://cloud.google.com/deployment-manager/docs/step-by-step-guide/using-references
+    IPProtocol: TCP
+    Port: [22, 80, 2289]
+
+- name: [FIREWALL_NAME_2]
+#This is a firewall run for Internet Control Messaging Protocol (ICMP)
+#ICMP is responsible for pinging in VMs. With ICMP, your VM can be pinged
+  type: firewall-template.jinja
+  properties:
+    network: $(ref.[AUTO_NETWORK_1].selfLink)
+    IPProtocol: ICMP
+    Port: []
+
+- name: [CUSTOM_NETWORK_1]
+  type: custom-network.jinja
+
+- name: [SUBNET_1]
+  type: subnetwork-template.jinja
+  properties:
+    ipCidrRange: 10.130.0.0/20 #You can use your own CIDR range
+    network: $(ref.[CUSTOM_NETWORK_1].selfLink)
+    region: [REGION]
+
+- name: [FIREWALL_NAME_3]
+  type: firewall-template.jinja
+  properties:
+    network: $(ref.[CUSTOM_NETWORK_1].selfLink)
+    IPProtocol: TCP
+    Port: [22, 80, 3389]
+
+- name: [FIREWALL_NAME_4]
+  type: firewall-template.jinja
+  properties:
+    network: $(ref.[CUSTOM_NETWORK_1].selfLink)
+    IPProtocol: ICMP
+    Port: []
+
+    
+- name: [VM_1]
+  type: vm-template.jinja
+  properties:
+    zone: us-central1-a
+    machineType: n1-standard-1
+    network: $(ref.[AUTO_NETWORK_1].selfLink)
+    subnetwork: regions/us-central1/subnetworks/[AUTO_NETWORK_1]
+
+- name: [VM_2]
+  type: instance-template.jinja
+  properties:
+    zone: us-central1-a
+    machineType: n1-standard-1
+    network: $(ref.[CUSTOM_NETWORK_1].selfLink)
+    subnetwork: $(ref.[SUBNET_1].selfLink)
